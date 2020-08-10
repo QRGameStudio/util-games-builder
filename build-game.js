@@ -1,78 +1,67 @@
 const fs = require('fs');
+const path = require('path');
+const htmlminify = require('html-minifier').minify;
+const uglifyes = require('uglify-es');
+const lzma = require('lzma');
+const QRCode = require('qrcode');
 
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-}
-String.prototype.replaceAll = function(search, replace){
-    return this.replace(new RegExp(escapeRegExp(search), 'g'), replace)
-}
+function main() {
+    const game_file = process.argv[2];
+    if (!fs.existsSync(game_file)) {
+        console.error("Game file does not exist: ", game_file);
+        return;
+    }
 
-const TRANSLATION_TABLE = {
-    ':0': '(',
-    ':1': ')',
-    ':2': '<',
-    ':3': '>',
-    ':4': '[',
-    ':5': ']',
-    ':6': 'for',
-    ':7': 'while',
-    ':8': 'if',
-    ':9': 'else',
-    ':A': 'const',
-    ':B': 'let',
-    ':C': 'var',
-    ':D': 'function',
-    ':E': '()=>',
-    ':F': '()',
-    ':G': '=>',
-    ':H': '=',
-    ':J': ';',
-    ':K': '<=',
-    ':L': '>=',
-    ':M': '===',
-    ':N': '!==',
-    ':O': 'null',
-    ':P': '!',
-    ':Q': 'true',
-    ':R': 'false',
-    ':S': '{',
-    ':T': '}',
-    ':U': '"',
-    ':V': "'",
-    ':W': ',',
-    ':X': '`',
-    ':Y': '?',
-    ':Z': '&&',
-    '::A': '||'
-}
+    // read html
+    let html = fs.readFileSync(game_file, "utf8");
 
-const VALID_CHARACTERS = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
-    'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-    'U', 'V', 'W', 'X', 'Y', 'Z',
-    ' ', '$', '%', '*', '+', '-', '.', '/', ':'
-]
+    // include game style
+    const css_file = game_file.replace('.html', '.css');
+    let css = fs.readFileSync(css_file, 'utf8');
 
-let minified = fs.readFileSync(process.argv[2], 'utf8');
+    html = html.replace(new RegExp(`<\\s*link\\s.*?${path.basename(css_file)}.*?>`), `<style>${css}</style>`);
 
-const translationTableReversed = {};
-const translationTableReversedKeysSorted = [];
-Object.keys(TRANSLATION_TABLE).forEach(k => {
-    const v = TRANSLATION_TABLE[k];
-    translationTableReversed[v]= k;
-    translationTableReversedKeysSorted.push(v);
-});
-translationTableReversedKeysSorted.sort((a, b) => b.length - a.length);
-minified = minified.replaceAll(':', ':::');
-translationTableReversedKeysSorted.forEach(k => minified = minified.replaceAll(k, translationTableReversed[k]));
-minified = minified.trim().toUpperCase();
+    // minify HTML & CSS
+    html = htmlminify(html, {
+        caseSensitive: false,
+        collapseBooleanAttributes: true,
+        collapseInlineTagWhitespace: true,
+        collapseWhitespace: true,
+        decodeEntities: true,
+        html5: true,
+        minifyCSS: true,
+        minifyJS: true,
+        minifyURLs: true,
+        removeAttributeQuotes: true,
+        removeComments: true,
+        removeEmptyAttributes: true,
+        removeEmptyElements: false,
+        removeOptionalTags: true,
+        removeRedundantAttributes: true,
+        removeScriptTypeAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        removeTagWhitespace: true,
+        sortAttributes: true,
+        sortClassName: true,
+    });
 
-const invalidCh = minified.split('').find(ch => VALID_CHARACTERS.indexOf(ch) === -1);
-if (invalidCh) {
-    console.error(`Invalid character found: ${invalidCh}`);
-    process.exit(1);
+    // minimize js
+    const js_file = game_file.replace('.html', '.js');
+    let js = fs.readFileSync(js_file, 'utf8');
+    // noinspection JSUnresolvedFunction
+    js = uglifyes.minify(js, {
+        toplevel: true
+    }).code;
+
+    // include js
+    html = html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
+
+    const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
+    fs.mkdirSync(path.dirname(output_path), {recursive: true});
+    fs.writeFileSync(output_path, html);
+    const compressed = Buffer.from(lzma.compress(html, 9)).toString('base64');
+    fs.writeFileSync(output_path + '.comp', compressed);
+    QRCode.toFile(output_path + '.svg', [{data: 'https://itty.bitty.site/#/' + compressed}]);
 }
 
-fs.writeFileSync(process.argv[2] + '.min.js', minified);
-
+main()

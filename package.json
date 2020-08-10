@@ -10,6 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "html-minifier": "^4.0.0",
+    "qrcode": "^1.4.4",
     "uglify-es": "^3.3.9"
+  },
+  "devDependencies": {
+    "lzma": "^2.3.2"
   }
 }
