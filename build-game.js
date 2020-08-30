@@ -17,9 +17,22 @@ function main() {
 
     // include game style
     const css_file = game_file.replace('.html', '.css');
-    let css = fs.readFileSync(css_file, 'utf8');
+    if (fs.existsSync(css_file)) {
+        let css = fs.readFileSync(css_file, 'utf8');
+        html = html.replace(new RegExp(`<\\s*link\\s.*?${path.basename(css_file)}.*?>`), `<style>${css}</style>`);
+    }
 
-    html = html.replace(new RegExp(`<\\s*link\\s.*?${path.basename(css_file)}.*?>`), `<style>${css}</style>`);
+    // minimize js
+    let js_re_res;
+    let js_re_index = 0;
+    while(true) {
+        js_re_res = /<\s*script\s.*?src=["'](.*)["'].*?>/g.exec(html.substring(js_re_index));
+        if (!js_re_res) {
+            break;
+        }
+        html = include_js(html, js_re_res[1]);
+        js_re_index += js_re_res.index + js_re_res[0].length;
+    }
 
     // minify HTML & CSS
     html = htmlminify(html, {
@@ -30,7 +43,7 @@ function main() {
         decodeEntities: true,
         html5: true,
         minifyCSS: true,
-        minifyJS: true,
+        minifyJS: false,
         minifyURLs: true,
         removeAttributeQuotes: true,
         removeComments: true,
@@ -45,8 +58,16 @@ function main() {
         sortClassName: true,
     });
 
-    // minimize js
-    const js_file = game_file.replace('.html', '.js');
+    const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
+    fs.mkdirSync(path.dirname(output_path), {recursive: true});
+    fs.writeFileSync(output_path, html);
+
+    const compressed = Buffer.from(lzma.compress(html, 9));
+    fs.writeFileSync(output_path + '.bin', compressed);
+    QRCode.toFile(output_path + '.svg', [{data: 'https://itty.bitty.site/#/' + compressed.toString('base64')}]);
+}
+
+function include_js(html, js_file) {
     let js = fs.readFileSync(js_file, 'utf8');
     // noinspection JSUnresolvedFunction
     js = uglifyes.minify(js, {
@@ -54,14 +75,7 @@ function main() {
     }).code;
 
     // include js
-    html = html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
-
-    const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
-    fs.mkdirSync(path.dirname(output_path), {recursive: true});
-    fs.writeFileSync(output_path, html);
-    const compressed = Buffer.from(lzma.compress(html, 9)).toString('base64');
-    fs.writeFileSync(output_path + '.comp', compressed);
-    QRCode.toFile(output_path + '.svg', [{data: 'https://itty.bitty.site/#/' + compressed}]);
+    return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
 }
 
 main()
