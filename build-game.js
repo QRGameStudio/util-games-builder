@@ -64,7 +64,7 @@ function main() {
 
     const compressed = Buffer.from(lzma.compress(html, 9));
     fs.writeFileSync(output_path + '.bin', compressed);
-    const url = 'https://qrpr.eu/html.html#' + compressed.toString('base64');
+    const url = 'https://qrpr.eu/h#' + compressed.toString('base64');
     console.log(url);
     QRCode.toFile(output_path + '.svg', [{data: url}]);
 }
