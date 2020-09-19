@@ -68,7 +68,9 @@ function main() {
     fs.writeFileSync(output_path + '.b64.txt', b64);
     const url = 'http://qrpr.eu/h#' + b64;
     console.log(url);
+    fs.writeFileSync(output_path + '.url.txt', url);
     QRCode.toFile(output_path + '.svg', [{data: url}]);
+    QRCode.toFile(output_path + '.png', [{data: url}]);
 }
 
 function include_js(html, js_file) {
