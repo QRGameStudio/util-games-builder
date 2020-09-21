@@ -63,12 +63,15 @@ function main() {
     fs.writeFileSync(output_path, html);
 
     const compressed = Buffer.from(lzma.compress(html, 9));
-    fs.writeFileSync(output_path + '.bin', compressed);
+    const compressedQRData = Buffer.concat([new Uint8Array([99, 104]), new Uint8Array(compressed)]);  // prefix: ch (compressed html)
+    fs.writeFileSync(output_path + '.bin', compressedQRData);
     const b64 = compressed.toString('base64');
     fs.writeFileSync(output_path + '.b64.txt', b64);
     const url = 'http://qrpr.eu/h#' + b64;
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
+    QRCode.toFile(output_path + '.comp.svg', [{data: compressedQRData}]);
+    QRCode.toFile(output_path + '.comp.png', [{data: compressedQRData}]);
     QRCode.toFile(output_path + '.svg', [{data: url}]);
     QRCode.toFile(output_path + '.png', [{data: url}]);
 }
