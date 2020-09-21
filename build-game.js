@@ -70,9 +70,14 @@ function main() {
     const b64 = compressed.toString('base64');
     fs.writeFileSync(output_path + '.b64.txt', b64);
 
+    const b32 = base32.encode(compressed).toUpperCase();
+    fs.writeFileSync(output_path + '.b32.txt', b32);
+
     const url = 'http://qrpr.eu/h#' + b64;
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
+
+    const url32 = 'HTTP://QRPR.EU/H/' + b32;
 
     // CMIX compressed ( https://github.com/byronknoll/cmix )
     const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
@@ -97,6 +102,10 @@ function main() {
     // URL compressed
     QRCode.toFile(output_path + '.svg', [{data: url}]);
     QRCode.toFile(output_path + '.png', [{data: url}]);
+
+    // Base 32 URL compressed
+    QRCode.toFile(output_path + '.b32.svg', [{data: url32}]);
+    QRCode.toFile(output_path + '.b32.png', [{data: url32}]);
 }
 
 function include_js(html, js_file) {
