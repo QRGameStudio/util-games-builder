@@ -72,6 +72,7 @@ function main() {
 
     const b32 = base32.encode(compressed).toUpperCase();
     fs.writeFileSync(output_path + '.b32.txt', b32);
+    fs.writeFileSync(output_path + '.b32a.txt', adaptiveCompression(b32));
 
     const url = 'http://qrpr.eu/h#' + b64;
     console.log(url);
@@ -81,19 +82,20 @@ function main() {
 
     // CMIX compressed ( https://github.com/byronknoll/cmix )
     const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
-    if (fs.existsSync(cmixExec)) {
+    if (fs.existsSync(cmixExec) && false) {
         console.log('starting cmix compression (may take a while)');
         const cmixOutputPath = `${output_path}.cmix`;
         cp.execSync(`${cmixExec} -c ${output_path} ${cmixOutputPath}`);
         const cmixOutput = fs.readFileSync(cmixOutputPath);
-        const cmixData = 'CC' + base32.encode(cmixOutput).toUpperCase();
+        const cmixData = 'CC' + adaptiveCompression(base32.encode(cmixOutput).toUpperCase());
         fs.writeFileSync(`${cmixOutputPath}.txt`, cmixData);
         QRCode.toFile(output_path + '.cmix.svg', [{data: cmixData}]);
         QRCode.toFile(output_path + '.cmix.png', [{data: cmixData}]);
     }
 
     // CB compressed
-    const compressedQRData = 'CB' + base32.encode(compressed).toUpperCase();
+    const compressedQRData = 'CB' + adaptiveCompression(base32.encode(compressed).toUpperCase());
+    adaptiveCompression(compressedQRData);
     fs.writeFileSync(output_path + '.comp.txt', compressedQRData);
 
     QRCode.toFile(output_path + '.comp.svg', [{data: compressedQRData}]);
@@ -117,6 +119,79 @@ function include_js(html, js_file) {
 
     // include js
     return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
+}
+
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function replaceAll(str, find, replace) {
+    return str.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+}
+
+function adaptiveCompression(text) {
+    let validCharacters = ' $%*+-./:'.split('').map(
+        (c) => [c, (text.match(new RegExp(escapeRegExp(c), 'g')) || '').length]
+    ).sort((a, b) => a[1] - b[1]).map((x) => x[0]);
+
+    let replaceMatches = [];
+
+    let _text_copy = `${text}`;
+    let chars = [];
+    let charsC = 0;
+    let payOff = 0;
+    while (_text_copy) {
+        const charsCurr = _text_copy.substring(0, chars.length + 1);
+        const charsCCurr = _text_copy.match(new RegExp(escapeRegExp(charsCurr), 'g')).length;
+        const payOffCurr = charsCurr.length * charsCCurr;
+        if (charsCCurr === charsCurr.length || payOffCurr < payOff) {
+            replaceMatches.push([charsCurr, payOffCurr]);
+            _text_copy = _text_copy.substring(chars.length + 1);
+            continue;
+        }
+        chars = charsCurr;
+        charsC = charsCCurr;
+        payOff = payOffCurr;
+    }
+    replaceMatches = replaceMatches.sort((a, b) => (b[1] - a[1]));
+
+    function ReplacementGenerator() {
+        let replacementChars = validCharacters.slice();
+        let currIs = [0];
+        this.next = () => {
+            const r = currIs.reverse().map((x) => replacementChars[x]).join('');
+            for (let i = 0; i < currIs.length; i++) {
+                currIs[i] ++;
+                if (currIs[i] === replacementChars.length) {
+                    currIs[i] = 0;
+                    if (i === currIs.length - 1) {
+                        currIs = currIs.map(() => 0);
+                        currIs.push(0);
+                    }
+                }
+            }
+            return r;
+        };
+    }
+
+    const replacement = new ReplacementGenerator();
+    const replaceMap = {};
+    for (let match of replaceMatches) {
+        const replacementCurr = replacement.next();
+        if (match[0].length < replacementCurr.length + 1) {
+            // this replacement does not pay off, stop replacing
+            break;
+        }
+        replaceMap[replacementCurr] = match[0];
+        text = replaceAll(text, match[0], `${replacementCurr}`);
+    }
+
+    const replacementMapFlat = Object.keys(replaceMap).map((k) => [k, replaceMap[k]]);
+    if (replacementMapFlat) {
+        let prefix = replacementMapFlat.map((x) => `${x[0]}${x[1]}`).join('') + replacementMapFlat[0][0];
+        text = prefix + text;
+    }
+    return text;
 }
 
 main()
