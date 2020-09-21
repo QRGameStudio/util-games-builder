@@ -1,11 +1,14 @@
 const fs = require('fs');
+const base32 = require('base32');
 const path = require('path');
 const htmlminify = require('html-minifier').minify;
 const uglifyes = require('uglify-es');
 const lzma = require('lzma');
 const QRCode = require('qrcode');
+const cp = require("child_process");
 
 function main() {
+    const scriptDir = path.resolve(path.join(process.argv[1], '..'))
     const game_file = process.argv[2];
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
@@ -63,15 +66,35 @@ function main() {
     fs.writeFileSync(output_path, html);
 
     const compressed = Buffer.from(lzma.compress(html, 9));
-    const compressedQRData = Buffer.concat([new Uint8Array([99, 104]), new Uint8Array(compressed)]);  // prefix: ch (compressed html)
-    fs.writeFileSync(output_path + '.bin', compressedQRData);
+    fs.writeFileSync(output_path + '.bin', compressed);
     const b64 = compressed.toString('base64');
     fs.writeFileSync(output_path + '.b64.txt', b64);
+
     const url = 'http://qrpr.eu/h#' + b64;
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
+
+    // CMIX compressed ( https://github.com/byronknoll/cmix )
+    const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
+    if (fs.existsSync(cmixExec)) {
+        console.log('starting cmix compression (may take a while)');
+        const cmixOutputPath = `${output_path}.cmix`;
+        cp.execSync(`${cmixExec} -c ${output_path} ${cmixOutputPath}`);
+        const cmixOutput = fs.readFileSync(cmixOutputPath);
+        const cmixData = 'CC' + base32.encode(cmixOutput).toUpperCase();
+        fs.writeFileSync(`${cmixOutputPath}.txt`, cmixData);
+        QRCode.toFile(output_path + '.cmix.svg', [{data: cmixData}]);
+        QRCode.toFile(output_path + '.cmix.png', [{data: cmixData}]);
+    }
+
+    // CB compressed
+    const compressedQRData = 'CB' + base32.encode(compressed).toUpperCase();
+    fs.writeFileSync(output_path + '.comp.txt', compressedQRData);
+
     QRCode.toFile(output_path + '.comp.svg', [{data: compressedQRData}]);
     QRCode.toFile(output_path + '.comp.png', [{data: compressedQRData}]);
+
+    // URL compressed
     QRCode.toFile(output_path + '.svg', [{data: url}]);
     QRCode.toFile(output_path + '.png', [{data: url}]);
 }
