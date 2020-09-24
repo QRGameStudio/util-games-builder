@@ -28,7 +28,7 @@ function main() {
     // minimize js
     let js_re_res;
     let js_re_index = 0;
-    while(true) {
+    while (true) {
         js_re_res = /<\s*script\s.*?src=["'](.*)["'].*?>/g.exec(html.substring(js_re_index));
         if (!js_re_res) {
             break;
@@ -65,6 +65,9 @@ function main() {
     fs.mkdirSync(path.dirname(output_path), {recursive: true});
     fs.writeFileSync(output_path, html);
 
+    html = mapHTML(html);
+    fs.writeFileSync(output_path + '.repl.txt', html);
+
     const compressed = Buffer.from(lzma.compress(html, 9));
     fs.writeFileSync(output_path + '.bin', compressed);
     const b64 = compressed.toString('base64');
@@ -81,7 +84,7 @@ function main() {
     const url32 = 'HTTP://QRPR.EU/html.html#' + b32;
 
     // CMIX compressed ( https://github.com/byronknoll/cmix )
-    const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
+    const cmixExec = path.resolve(scriptDir, 'bin', 'cmix');
     if (fs.existsSync(cmixExec)) {
         console.log('starting cmix compression (may take a while)');
         const cmixOutputPath = `${output_path}.cmix`;
@@ -119,6 +122,82 @@ function include_js(html, js_file) {
 
     // include js
     return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
+}
+
+function mapHTML(html) {
+    const mapVersion = '1';
+    const map = {
+        '0': 'left',
+        '1': '.map',
+        '2': 'else',
+        '3': 'body',
+        '4': 'then',
+        '5': 'top',
+        '6': 'for',
+        '7': '===',
+        '8': 'var',
+        '9': 'new',
+        a:
+            '<meta content="width=device-width,initial-scale=1"name=viewport>',
+        b: 'document.createElement(',
+        c: '.getBoundingClientRect(',
+        d: '.classList.contains',
+        e: '.classList.remove',
+        f: 'background-color',
+        g: '<!DOCTYPE html>',
+        h: '.classList.add',
+        i: 'clearInterval(',
+        j: 'window.onload',
+        k: 'setInterval(',
+        l: 'game-content',
+        m: 'appendChild(',
+        n: 'clearTimeout',
+        o: 'setTimeout(',
+        p: 'transparent',
+        q: 'font-weight',
+        r: '.classList',
+        s: 'background',
+        t: '.className',
+        u: 'Math.max(',
+        v: 'Math.min(',
+        w: 'font-size',
+        x: 'direction',
+        y: 'position',
+        z: '.forEach',
+        A: 'function',
+        B: '.onclick',
+        C: 'content',
+        D: '<script',
+        E: 'padding',
+        F: 'display',
+        G: '.filter',
+        H: 'return',
+        I: 'center',
+        J: 'length',
+        K: 'margin',
+        L: 'border',
+        M: 'height',
+        N: 'bottom',
+        O: 'async',
+        P: 'while',
+        Q: 'this.',
+        R: '<meta',
+        S: 'Math.',
+        T: 'width',
+        U: 'await',
+        V: 'right',
+        W: 'color',
+        X: 'speed',
+        Y: '.get',
+        Z: 'name'
+    }
+
+    const tuples = Object.keys(map).map((k) => [k, map[k]]).sort((a, b) => b[1].length - a[1].length);
+    for (let replacement of tuples) {
+        html = replaceAll(html, replacement[1], `|${replacement[0]}`);
+    }
+
+    return `|R${mapVersion}|${html}`;
 }
 
 function escapeRegExp(string) {
@@ -161,7 +240,7 @@ function adaptiveCompression(text) {
         this.next = () => {
             const r = currIs.reverse().map((x) => replacementChars[x]).join('');
             for (let i = 0; i < currIs.length; i++) {
-                currIs[i] ++;
+                currIs[i]++;
                 if (currIs[i] === replacementChars.length) {
                     currIs[i] = 0;
                     if (i === currIs.length - 1) {
