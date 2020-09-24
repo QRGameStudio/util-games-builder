@@ -5,7 +5,6 @@ const htmlminify = require('html-minifier').minify;
 const uglifyes = require('uglify-es');
 const lzma = require('lzma');
 const QRCode = require('qrcode');
-const cp = require("child_process");
 
 function main() {
     const scriptDir = path.resolve(path.join(process.argv[1], '..'))
@@ -73,7 +72,7 @@ function main() {
     const b64 = compressed.toString('base64');
     fs.writeFileSync(output_path + '.b64.txt', b64);
 
-    const b32 = base32.encode(compressed).toUpperCase();
+    const b32 = adaptiveCompression(base32.encode(compressed).toUpperCase());
     fs.writeFileSync(output_path + '.b32.txt', b32);
     fs.writeFileSync(output_path + '.b32a.txt', adaptiveCompression(b32));
 
@@ -81,23 +80,8 @@ function main() {
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
 
-    const url32 = 'HTTP://QRPR.EU/html.html#' + b32;
-
-    // CMIX compressed ( https://github.com/byronknoll/cmix )
-    const cmixExec = path.resolve(scriptDir, 'bin', 'cmix');
-    if (fs.existsSync(cmixExec)) {
-        console.log('starting cmix compression (may take a while)');
-        const cmixOutputPath = `${output_path}.cmix`;
-        cp.execSync(`${cmixExec} -c ${output_path} ${cmixOutputPath}`);
-        const cmixOutput = fs.readFileSync(cmixOutputPath);
-        const cmixData = 'CC' + adaptiveCompression(base32.encode(cmixOutput).toUpperCase());
-        fs.writeFileSync(`${cmixOutputPath}.txt`, cmixData);
-        QRCode.toFile(output_path + '.cmix.svg', [{data: cmixData}]);
-        QRCode.toFile(output_path + '.cmix.png', [{data: cmixData}]);
-    }
-
     // CB compressed
-    const compressedQRData = 'CB' + adaptiveCompression(base32.encode(compressed).toUpperCase());
+    const compressedQRData = 'CB' + b32;
     adaptiveCompression(compressedQRData);
     fs.writeFileSync(output_path + '.comp.txt', compressedQRData);
 
@@ -107,10 +91,6 @@ function main() {
     // URL compressed
     QRCode.toFile(output_path + '.svg', [{data: url}]);
     QRCode.toFile(output_path + '.png', [{data: url}]);
-
-    // Base 32 URL compressed
-    QRCode.toFile(output_path + '.b32.svg', [{data: url32}]);
-    QRCode.toFile(output_path + '.b32.png', [{data: url32}]);
 }
 
 function include_js(html, js_file) {
@@ -192,12 +172,13 @@ function mapHTML(html) {
         Z: 'name'
     }
 
+    html = replaceAll(html, '~', '~~');
     const tuples = Object.keys(map).map((k) => [k, map[k]]).sort((a, b) => b[1].length - a[1].length);
     for (let replacement of tuples) {
-        html = replaceAll(html, replacement[1], `|${replacement[0]}`);
+        html = replaceAll(html, replacement[1], `~${replacement[0]}`);
     }
 
-    return `|R${mapVersion}|${html}`;
+    return `~R${mapVersion}~${html}`;
 }
 
 function escapeRegExp(string) {
