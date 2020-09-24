@@ -78,7 +78,7 @@ function main() {
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
 
-    const url32 = 'HTTP://QRPR.EU/H/' + b32;
+    const url32 = 'HTTP://QRPR.EU/html.html#' + b32;
 
     // CMIX compressed ( https://github.com/byronknoll/cmix )
     const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
