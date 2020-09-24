@@ -74,7 +74,7 @@ function main() {
     fs.writeFileSync(output_path + '.b32.txt', b32);
     fs.writeFileSync(output_path + '.b32a.txt', adaptiveCompression(b32));
 
-    const url = 'http://qrpr.eu/h#' + b64;
+    const url = 'http://qrpr.eu/html.html#' + b64;
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
 
@@ -82,7 +82,7 @@ function main() {
 
     // CMIX compressed ( https://github.com/byronknoll/cmix )
     const cmixExec = path.resolve(scriptDir,'bin', 'cmix');
-    if (fs.existsSync(cmixExec) && false) {
+    if (fs.existsSync(cmixExec)) {
         console.log('starting cmix compression (may take a while)');
         const cmixOutputPath = `${output_path}.cmix`;
         cp.execSync(`${cmixExec} -c ${output_path} ${cmixOutputPath}`);
