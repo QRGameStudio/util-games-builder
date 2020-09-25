@@ -72,7 +72,7 @@ function main() {
     const b64 = compressed.toString('base64');
     fs.writeFileSync(output_path + '.b64.txt', b64);
 
-    const b32 = adaptiveCompression(base32.encode(compressed).toUpperCase());
+    const b32 = base32.encode(compressed).toUpperCase();
     fs.writeFileSync(output_path + '.b32.txt', b32);
     fs.writeFileSync(output_path + '.b32a.txt', adaptiveCompression(b32));
 
@@ -80,13 +80,15 @@ function main() {
     console.log(url);
     fs.writeFileSync(output_path + '.url.txt', url);
 
-    // CB compressed
-    const compressedQRData = 'CB' + b32;
-    adaptiveCompression(compressedQRData);
-    fs.writeFileSync(output_path + '.comp.txt', compressedQRData);
-
-    QRCode.toFile(output_path + '.comp.svg', [{data: compressedQRData}]);
-    QRCode.toFile(output_path + '.comp.png', [{data: compressedQRData}]);
+    const compressedQRData = 'CB' + base32.encode(compressed).toUpperCase();
+    const url32Data = [
+        {data: 'http', mode: 'bytes'},
+        {data: '://QRPR.EU/HTML.', mode: 'alphanumeric'},
+        {data: 'html#', mode: 'bytes'},
+        {data: compressedQRData, mode: 'alphanumeric'}
+    ]
+    QRCode.toFile(output_path + '.b32.svg', url32Data);
+    QRCode.toFile(output_path + '.b32.png', url32Data);
 
     // URL compressed
     QRCode.toFile(output_path + '.svg', [{data: url}]);
