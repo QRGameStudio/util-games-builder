@@ -7,7 +7,6 @@ const lzma = require('lzma');
 const QRCode = require('qrcode');
 
 function main() {
-    const scriptDir = path.resolve(path.join(process.argv[1], '..'))
     const game_file = process.argv[2];
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
@@ -61,38 +60,40 @@ function main() {
     });
 
     const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
+    const auxiliary_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', 'aux', path.basename(game_file)));
+    fs.mkdirSync(path.dirname(auxiliary_path), {recursive: true});
     fs.mkdirSync(path.dirname(output_path), {recursive: true});
-    fs.writeFileSync(output_path, html);
+    fs.writeFileSync(auxiliary_path, html);
 
     html = mapHTML(html);
-    fs.writeFileSync(output_path + '.repl.txt', html);
+    fs.writeFileSync(auxiliary_path + '.repl.txt', html);
 
     const compressed = Buffer.from(lzma.compress(html, 9));
-    fs.writeFileSync(output_path + '.bin', compressed);
+    fs.writeFileSync(auxiliary_path + '.bin', compressed);
     const b64 = compressed.toString('base64');
-    fs.writeFileSync(output_path + '.b64.txt', b64);
+    fs.writeFileSync(auxiliary_path + '.b64.txt', b64);
 
-    const b32 = base32.encode(compressed).toUpperCase();
-    fs.writeFileSync(output_path + '.b32.txt', b32);
-    fs.writeFileSync(output_path + '.b32a.txt', adaptiveCompression(b32));
+    const b32 = 'CB' + base32.encode(compressed).toUpperCase();
+    fs.writeFileSync(auxiliary_path + '.b32.txt', b32);
+    fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
+    fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
     const url = 'http://qrpr.eu/html.html#' + b64;
     console.log(url);
-    fs.writeFileSync(output_path + '.url.txt', url);
+    fs.writeFileSync(auxiliary_path + '.url.txt', url);
 
-    const compressedQRData = 'CB' + base32.encode(compressed).toUpperCase();
     const url32Data = [
         {data: 'http', mode: 'bytes'},
         {data: '://QRPR.EU/HTML.', mode: 'alphanumeric'},
         {data: 'html#', mode: 'bytes'},
-        {data: compressedQRData, mode: 'alphanumeric'}
-    ]
-    QRCode.toFile(output_path + '.b32.svg', url32Data);
-    QRCode.toFile(output_path + '.b32.png', url32Data);
+        {data: b32, mode: 'alphanumeric'}
+    ];
+    QRCode.toFile(output_path + '.svg', url32Data);
+    QRCode.toFile(output_path + '.png', url32Data);
 
     // URL compressed
-    QRCode.toFile(output_path + '.svg', [{data: url}]);
-    QRCode.toFile(output_path + '.png', [{data: url}]);
+    QRCode.toFile(auxiliary_path + '.b64.svg', [{data: url}]);
+    QRCode.toFile(auxiliary_path + '.b64.png', [{data: url}]);
 }
 
 function include_js(html, js_file) {
