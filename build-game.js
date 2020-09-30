@@ -32,7 +32,7 @@ function main() {
         if (!js_re_res) {
             break;
         }
-        html = include_js(html, js_re_res[1]);
+        html = includeJS(html, js_re_res[1]);
         js_re_index += js_re_res.index + js_re_res[0].length;
     }
 
@@ -140,7 +140,7 @@ function getManifest(html) {
     return manifest;
 }
 
-function include_js(html, js_file) {
+function includeJS(html, js_file) {
     let js = fs.readFileSync(js_file, 'utf8');
     // noinspection JSUnresolvedFunction
     js = uglifyes.minify(js, {
