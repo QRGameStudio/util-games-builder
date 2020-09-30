@@ -5,6 +5,7 @@ const htmlminify = require('html-minifier').minify;
 const uglifyes = require('uglify-es');
 const lzma = require('lzma');
 const QRCode = require('qrcode');
+const jsdom = require('jsdom');
 
 function main() {
     const game_file = process.argv[2];
@@ -65,6 +66,10 @@ function main() {
     fs.mkdirSync(path.dirname(output_path), {recursive: true});
     fs.writeFileSync(auxiliary_path, html);
 
+    // generate manifest from html
+    const gameManifest = getManifest(html);
+    fs.writeFileSync(output_path + '.manifest.json', JSON.stringify(gameManifest, null, 2));
+
     html = mapHTML(html);
     fs.writeFileSync(auxiliary_path + '.repl.txt', html);
 
@@ -94,6 +99,45 @@ function main() {
     // URL compressed
     QRCode.toFile(auxiliary_path + '.b64.svg', [{data: url}]);
     QRCode.toFile(auxiliary_path + '.b64.png', [{data: url}]);
+}
+
+function getManifest(html) {
+    const { JSDOM } = jsdom;
+    const document = new JSDOM(html).window.document;
+
+    const manifest = {
+        name: null,
+        id: null,
+        secret: null,
+        version: null
+    }
+
+    const title = document.querySelector('title');
+    if (title) {
+        manifest.name = title.text;
+    }
+
+    const metaTags = document.getElementsByTagName('meta');
+    for (let meta of metaTags) {
+        const c = meta.content;
+        let k = null;
+        switch (meta.name) {
+            case 'gi':
+                k = 'id';
+                break;
+            case 'gv':
+                k = 'version';
+                break;
+            case 'gs':
+                k = 'secret';
+                break;
+        }
+        if (k) {
+            manifest[k] = c;
+        }
+    }
+
+    return manifest;
 }
 
 function include_js(html, js_file) {
