@@ -64,7 +64,7 @@ function main() {
     const auxiliary_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', 'aux', path.basename(game_file)));
     fs.mkdirSync(path.dirname(auxiliary_path), {recursive: true});
     fs.mkdirSync(path.dirname(output_path), {recursive: true});
-    fs.writeFileSync(auxiliary_path, html);
+    fs.writeFileSync(output_path, html);
 
     // generate manifest from html
     const gameManifest = getManifest(html);
