@@ -7,6 +7,9 @@ const lzma = require('lzma');
 const QRCode = require('qrcode');
 const jsdom = require('jsdom');
 
+const maxLength = 4296;
+const recLenght = 3000; // TODO experimatally find reccomended max size of QR codes in order to easy scann
+
 function main() {
     const game_file = process.argv[2];
     if (!fs.existsSync(game_file)) {
@@ -84,15 +87,16 @@ function main() {
     fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
     const url = 'http://qrpr.eu/html.html#' + b64;
-    console.log(url);
     fs.writeFileSync(auxiliary_path + '.url.txt', url);
 
     const url32Data = [
-        {data: 'http', mode: 'bytes'},
-        {data: '://QRPR.EU/HTML.', mode: 'alphanumeric'},
-        {data: 'html#', mode: 'bytes'},
+        {data: 'https', mode: 'bytes'},
+        {data: '://QGO.EU/GAME/', mode: 'alphanumeric'},
         {data: b32, mode: 'alphanumeric'}
     ];
+
+    printInfoToConsole(b32, b64);
+
     QRCode.toFile(output_path + '.svg', url32Data);
     QRCode.toFile(output_path + '.png', url32Data);
 
@@ -299,6 +303,33 @@ function adaptiveCompression(text) {
         text = prefix + text;
     }
     return text;
+}
+
+function printInfoToConsole(b32, b64){
+    const urlLength = b32.length + 20;
+    console.log("\nUrl for debugging:\n\n", 'http://qrpr.eu/html.html#' + b64);
+    console.log("\n\nProduction url:\n\n", "https://qgo.eu/Game/" + b32);
+
+    console.log("\n\n\nUrl length:", urlLength);
+    console.log("Reccomended max length:", recLenght);
+    console.log("Max length:", maxLength)
+    console.log("Used", Math.floor(100 * urlLength / recLenght), "% of reccomended programm size and", Math.floor(100 * urlLength / maxLength), "% of maximal programm size");
+    printLine(urlLength);
+}
+
+function printLine(len){
+    const color = len < recLenght ? "\x1b[32m" : len < maxLength ? "\x1b[33m" : "\x1b[31m"
+ 
+    let res = " ";
+    for(let i = 0; i < 100; i++)
+        res += "_"    
+    res += "\n|" + color
+    for(let i = 0; i < 100; i++)
+        res += i <  100 * len / maxLength ? "█" : i === Math.ceil(100 * recLenght / maxLength) ? "\x1b[33m|" + color : " ";
+    res += "\x1b[0m|\n ";
+    for(let i = 0; i < 100; i++)
+        res += "¯"
+    console.log(res, "\n");
 }
 
 main()
