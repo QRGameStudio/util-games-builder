@@ -6,6 +6,7 @@ const uglifyes = require('uglify-es');
 const lzma = require('lzma');
 const QRCode = require('qrcode');
 const jsdom = require('jsdom');
+const open = require('open');
 
 const maxLength = 4296;
 const recLenght = 3000; // TODO experimatally find reccomended max size of QR codes in order to easy scann
@@ -15,6 +16,18 @@ function main() {
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
         return;
+    }
+
+    let after_action = null;
+    if (process.argv.length >= 4) {
+        switch (process.argv[3]) {
+            case 'run':
+                after_action = 'run';
+                break;
+            case 'debug':
+                after_action = 'debug';
+                break;
+        }
     }
 
     // read html
@@ -86,13 +99,14 @@ function main() {
     fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
     fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
-    const url = 'http://qrpr.eu/html.html#' + b64;
-    fs.writeFileSync(auxiliary_path + '.url.txt', url);
+    const urlDebug = 'http://qrpr.eu/html.html#' + b32;
+    fs.writeFileSync(auxiliary_path + '.url.txt', urlDebug);
+
+    const urlProd = 'https://QGO.EU/GAME/' + b32;
 
     const url32Data = [
         {data: 'https', mode: 'bytes'},
-        {data: '://QGO.EU/GAME/', mode: 'alphanumeric'},
-        {data: b32, mode: 'alphanumeric'}
+        {data: '://QGO.EU/GAME/' + b32, mode: 'alphanumeric'},
     ];
 
     printInfoToConsole(b32, b64);
@@ -101,8 +115,19 @@ function main() {
     QRCode.toFile(output_path + '.png', url32Data);
 
     // URL compressed
-    QRCode.toFile(auxiliary_path + '.b64.svg', [{data: url}]);
-    QRCode.toFile(auxiliary_path + '.b64.png', [{data: url}]);
+    QRCode.toFile(auxiliary_path + '.b64.svg', [{data: urlDebug}]);
+    QRCode.toFile(auxiliary_path + '.b64.png', [{data: urlDebug}]);
+
+    if (after_action) {
+        switch (after_action) {
+            case 'debug':
+                open(urlDebug);
+                break;
+            case 'run':
+                open(urlProd)
+                break;
+        }
+    }
 }
 
 function getManifest(html) {
@@ -319,10 +344,10 @@ function printInfoToConsole(b32, b64){
 
 function printLine(len){
     const color = len < recLenght ? "\x1b[32m" : len < maxLength ? "\x1b[33m" : "\x1b[31m"
- 
+
     let res = " ";
     for(let i = 0; i < 100; i++)
-        res += "_"    
+        res += "_"
     res += "\n|" + color
     for(let i = 0; i < 100; i++)
         res += i <  100 * len / maxLength ? "█" : i === Math.ceil(100 * recLenght / maxLength) ? "\x1b[33m|" + color : " ";
