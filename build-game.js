@@ -95,7 +95,7 @@ function main() {
     fs.writeFileSync(auxiliary_path + '.b64.txt', b64);
 
     const b32 = 'CB' + base32.encode(compressed).toUpperCase();
-    fs.writeFileSync(auxiliary_path + '.b32.txt', b32);
+    fs.writeFileSync(output_path + '.compiled.txt', b32);
     fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
     fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
