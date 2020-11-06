@@ -114,10 +114,6 @@ function main() {
     QRCode.toFile(output_path + '.svg', url32Data);
     QRCode.toFile(output_path + '.png', url32Data);
 
-    // URL compressed
-    QRCode.toFile(auxiliary_path + '.b64.svg', [{data: urlDebug}]);
-    QRCode.toFile(auxiliary_path + '.b64.png', [{data: urlDebug}]);
-
     if (after_action) {
         switch (after_action) {
             case 'debug':
