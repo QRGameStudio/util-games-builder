@@ -102,11 +102,13 @@ function main() {
     const urlDebug = 'http://qrpr.eu/html.html#' + b32;
     fs.writeFileSync(auxiliary_path + '.url.txt', urlDebug);
 
-    const urlProd = 'https://QGO.EU/GAME/' + b32;
+    const urlProd = 'https://QGO.EU/GAME#' + b32;
 
     const url32Data = [
         {data: 'https', mode: 'bytes'},
-        {data: '://QGO.EU/GAME/' + b32, mode: 'alphanumeric'},
+        {data: '://QGO.EU/GAME', mode: 'alphanumeric'},
+        {data: '#', mode: 'bytes'},
+        {data: b32, mode: 'alphanumeric'}
     ];
 
     printInfoToConsole(b32, b64);
