@@ -89,7 +89,44 @@ function main() {
     html = mapHTML(html);
     fs.writeFileSync(auxiliary_path + '.repl.txt', html);
 
+    // html = '1234567812345678';
+
+    let byteSpaceLeft = 8;
+    let onlyAscii = true;
+    const html7bit = [0];
+    const htmlChars = html.split('');
+    // noinspection JSBitwiseOperatorUsage
+    for (let char of htmlChars) {
+        const charCode = char.charCodeAt(0);
+        if ((charCode & 128) !== 0) {
+            onlyAscii = false;
+            break;
+        }
+        const addNewByte = byteSpaceLeft <= 7;
+        let byteUpperLength = Math.min(byteSpaceLeft, 7);
+        let byteSplit = splitAsciiByte(charCode, byteUpperLength);
+        let byteUpper = byteSplit[0];
+        html7bit[html7bit.length - 1] |= byteUpper;
+
+        let byteLower = byteSplit[1];
+
+        if (addNewByte) {
+            html7bit.push(byteLower);
+            byteSpaceLeft = 8 - (7 - byteUpperLength);
+        } else {
+            byteSpaceLeft -= 7;
+        }
+
+        console.log(byteSpaceLeft, addNewByte);
+    }
+    const html7bitBuffer = Buffer.from(html7bit);
+
+
     const compressed = Buffer.from(lzma.compress(html, 9));
+    const compressed2 = Buffer.from(lzma.compress(html7bitBuffer, 9));
+
+    console.log(html.length, html7bit.length, compressed.byteLength, compressed2.byteLength);
+    process.exit();
     fs.writeFileSync(auxiliary_path + '.bin', compressed);
     const b64 = compressed.toString('base64');
     fs.writeFileSync(auxiliary_path + '.b64.txt', b64);
@@ -353,6 +390,23 @@ function printLine(len){
     for(let i = 0; i < 100; i++)
         res += "¯"
     console.log(res, "\n");
+}
+
+function splitAsciiByte(byte, upperC) {
+    let upper = 0;
+    let lower = 0;
+
+    for (let i = 0; i < upperC; i++) {
+        upper += byte & (2**(6-i));
+    }
+    upper >>= (7 - upperC);
+
+    for (let i = 0; i < 7 - upperC; i++) {
+        lower += byte & (2**i);
+    }
+    lower <<= upperC + 1;
+
+    return [upper, lower];
 }
 
 main()
