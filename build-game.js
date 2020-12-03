@@ -106,7 +106,7 @@ function main() {
 
     const url32Data = [
         {data: 'https', mode: 'bytes'},
-        {data: '://QGO.EU/GAME', mode: 'alphanumeric'},
+        {data: '://QGO.EU/GAME/', mode: 'alphanumeric'},
         {data: '#', mode: 'bytes'},
         {data: b32, mode: 'alphanumeric'}
     ];
