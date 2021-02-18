@@ -175,7 +175,8 @@ function includeJS(html, js_file) {
     }).code;
 
     // include js
-    return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`), `<script>${js}`);
+    return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`),
+        () => `<script>${js}`);
 }
 
 function mapHTML(html) {
