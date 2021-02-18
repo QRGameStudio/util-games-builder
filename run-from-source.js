@@ -11,7 +11,7 @@ const GAME_FILE = process.argv[2];
 
 const BUILD = {
     address: '',
-    watchedFiles: ''
+    watchedFiles: []
 }
 
 const CONNECTED_CLIENTS = []
@@ -32,6 +32,25 @@ function start_socket_io() {
         client.emit('url', BUILD.address);
     });
 }
+
+function debounce(func, wait, immediate) {
+    let timeout;
+    return function() {
+        const context = this, args = arguments;
+        const later = function () {
+            timeout = null;
+            if (!immediate) func.apply(context, args);
+        };
+        const callNow = immediate && !timeout;
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+        if (callNow) func.apply(context, args);
+    };
+}
+
+
+const buildDebounced = debounce(() => build(), 5000);
+
 
 function build() {
     console.log('building...')
@@ -55,11 +74,14 @@ function build() {
         }
         const buildData = JSON.parse(stdout);
         BUILD.address = buildData.urlDebug;
-        BUILD.watchedFiles = buildData.sourceFiles;
-        console.log('build finished')
 
-        BUILD.watchedFiles.forEach((f) => fs.watch(f, {persistent: false}, () => {
-            build();
+        BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
+
+        BUILD.watchedFiles = buildData.sourceFiles;
+        console.log('build finished');
+
+        BUILD.watchedFiles.forEach((f) => fs.watchFile(f, {persistent: false}, () => {
+            buildDebounced();
         }))
 
         CONNECTED_CLIENTS.forEach((c) => {
