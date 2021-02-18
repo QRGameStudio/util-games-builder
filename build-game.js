@@ -13,10 +13,18 @@ const recLenght = 3000; // TODO experimatally find reccomended max size of QR co
 
 function main() {
     const game_file = process.argv[2];
+    let json_output = false;
+
+    try {
+        json_output = process.argv[3] === '--json';
+    } catch (_) {}
+
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
         return;
     }
+
+    const sourceFiles = [game_file];
 
     let after_action = null;
     if (process.argv.length >= 4) {
@@ -36,6 +44,7 @@ function main() {
     // include game style
     const css_file = game_file.replace('.html', '.css');
     if (fs.existsSync(css_file)) {
+        sourceFiles.push(css_file);
         let css = fs.readFileSync(css_file, 'utf8');
         html = html.replace(new RegExp(`<\\s*link\\s.*?${path.basename(css_file)}.*?>`), `<style>${css}</style>`);
     }
@@ -48,7 +57,9 @@ function main() {
         if (!js_re_res) {
             break;
         }
-        html = includeJS(html, js_re_res[1]);
+        const js_file = path.resolve(js_re_res[1]);
+        sourceFiles.push(js_file)
+        html = includeJS(html, js_file);
         js_re_index += js_re_res.index + js_re_res[0].length;
     }
 
@@ -82,7 +93,7 @@ function main() {
     fs.mkdirSync(path.dirname(output_path), {recursive: true});
     fs.writeFileSync(output_path, html);
 
-    // generate manifest from html
+    // generate manifest from autodeveloping-server
     const gameManifest = getManifest(html);
     fs.writeFileSync(output_path + '.manifest.json', JSON.stringify(gameManifest, null, 2));
 
@@ -111,7 +122,13 @@ function main() {
         {data: b32, mode: 'alphanumeric'}
     ];
 
-    printInfoToConsole(b32, b64);
+    if (!json_output) {
+        printInfoToConsole(b32, b64);
+    } else {
+        console.log(JSON.stringify({
+            b32, b64, urlProd, urlDebug, sourceFiles
+        }))
+    }
 
     QRCode.toFile(output_path + '.svg', url32Data);
     QRCode.toFile(output_path + '.png', url32Data);

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Game</title>
+    <style>
+        html, body, iframe {
+            width: 100vw;
+            height: 100vw;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            border: none;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        window.onload = () => {
+            const frame = document.querySelector('iframe');
+            const socket = io();
+            socket.on('url', (url) => {
+                console.log('New game version received');
+                frame.src = url;
+            });
+        }
+    </script>
+</head>
+<body>
+<iframe src=""></iframe>
+</body>
+</html>
