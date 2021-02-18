@@ -171,7 +171,10 @@ function includeJS(html, js_file) {
     let js = fs.readFileSync(js_file, 'utf8');
     // noinspection JSUnresolvedFunction
     js = uglifyes.minify(js, {
-        toplevel: true
+        toplevel: true,
+        mangle: {
+            reserved: ['$']
+        }
     }).code;
 
     // include js
