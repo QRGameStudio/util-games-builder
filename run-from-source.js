@@ -6,8 +6,15 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require("child_process");
 
+/**
+ * This program launches a development server that auto compiles your game whenever the source file changes
+ *
+ * Usage: node run-from-source.js /path/to/the/game.html [...additional paths to watch for change]
+ */
 
-const GAME_FILE = process.argv[2];
+
+const GAME_FILE = process.argv.length >= 3 ? process.argv[2] : null;
+const WATCHED_FILES = process.argv.slice(3);
 
 const BUILD = {
     address: '',
@@ -77,7 +84,7 @@ function build() {
 
         BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
 
-        BUILD.watchedFiles = buildData.sourceFiles;
+        BUILD.watchedFiles = [...buildData.sourceFiles, ...WATCHED_FILES];
         console.log('build finished');
 
         BUILD.watchedFiles.forEach((f) => fs.watchFile(f, {persistent: false}, () => {
