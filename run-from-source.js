@@ -56,7 +56,7 @@ function debounce(func, wait, immediate) {
 }
 
 
-const buildDebounced = debounce(() => build(), 5000);
+const buildDebounced = debounce(() => build(), 500);
 
 
 function build() {
