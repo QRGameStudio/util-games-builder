@@ -12,9 +12,10 @@ const { spawn } = require("child_process");
  * Usage: node run-from-source.js /path/to/the/game.html [...additional paths to watch for change]
  */
 
+const GAME_FILE = process.argv.length >= 3 ? path.resolve(process.argv[2]) : null;
+const WATCHED_FILES = process.argv.slice(3).map((f) => path.resolve(f));
 
-const GAME_FILE = process.argv.length >= 3 ? process.argv[2] : null;
-const WATCHED_FILES = process.argv.slice(3);
+process.chdir('/');  // work in root in order to handle current cwd deletion by automatic compilers
 
 const BUILD = {
     address: '',
@@ -79,7 +80,13 @@ function build() {
             console.error(`build failed with error code: ${code}`);
             return;
         }
-        const buildData = JSON.parse(stdout);
+        let buildData;
+        try {
+            buildData = JSON.parse(stdout);
+        } catch {
+            console.error(`invalid data from builder: ${stdout}`);
+            return;
+        }
         BUILD.address = buildData.urlDebug;
 
         BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
