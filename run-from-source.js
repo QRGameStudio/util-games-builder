@@ -12,8 +12,15 @@ const { spawn } = require("child_process");
  * Usage: node run-from-source.js /path/to/the/game.html [...additional paths to watch for change]
  */
 
-const GAME_FILE = process.argv.length >= 3 ? path.resolve(process.argv[2]) : null;
-const WATCHED_FILES = process.argv.slice(3).map((f) => path.resolve(f));
+const ARGS = process.argv.slice(2);
+let WEB_PATH = 'https://qrpr.eu';
+if (ARGS[0].startsWith('--web=')) {
+    WEB_PATH = ARGS[0].split('=')[1];
+    ARGS.shift();
+}
+const GAME_FILE = path.resolve(ARGS[0]);
+ARGS.shift();
+const WATCHED_FILES = ARGS.map((f) => path.resolve(f));
 
 process.chdir('/');  // work in root in order to handle current cwd deletion by automatic compilers
 
@@ -87,7 +94,7 @@ function build() {
             console.error(`invalid data from builder: ${stdout}`);
             return;
         }
-        BUILD.address = buildData.urlDebug;
+        BUILD.address = WEB_PATH + '/' + buildData.urlDebug.split('/', 4)[3];
 
         BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
 
