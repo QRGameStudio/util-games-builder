@@ -12,12 +12,13 @@ const maxLength = 4296;
 const recLenght = 3000; // TODO experimatally find reccomended max size of QR codes in order to easy scann
 
 function main() {
-    const game_file = process.argv[2];
-    let json_output = false;
+    const args = [...process.argv];
 
-    try {
-        json_output = process.argv[3] === '--json';
-    } catch (_) {}
+    args.shift();
+    args.shift();
+    const game_file = args[0];
+    const json_output = args.indexOf('--json') > -1;
+    const generate_qr_code = args.indexOf('--no-qr') === -1;
 
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
@@ -130,8 +131,10 @@ function main() {
         }))
     }
 
-    QRCode.toFile(output_path + '.svg', url32Data);
-    QRCode.toFile(output_path + '.png', url32Data);
+    if (generate_qr_code) {
+        QRCode.toFile(output_path + '.svg', url32Data);
+        QRCode.toFile(output_path + '.png', url32Data);
+    }
 
     if (after_action) {
         switch (after_action) {
