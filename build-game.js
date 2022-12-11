@@ -187,19 +187,59 @@ function getManifest(html) {
     return manifest;
 }
 
+/**
+ * Include new javascript file inside HTML code
+ * @param html {string} HTML code
+ * @param js_file {string} path to the JS file
+ * @return {string} HTML with included JS code
+ */
 function includeJS(html, js_file) {
-    let js = fs.readFileSync(js_file, 'utf8');
-    // noinspection JSUnresolvedFunction
-    js = uglifyes.minify(js, {
-        toplevel: true,
-        mangle: {
-            reserved: ['$']
-        }
-    }).code;
+    const js = loadJS(js_file);
 
     // include js
     return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`),
         () => `<script>${js}`);
+}
+
+/**
+ * Loads javascript code, resolving all imports
+ * @param js_path {string} path to the JS file
+ * @param included {Set[string] | null} list of already included file paths
+ * @return {string}
+ */
+function loadJS(js_path, included = null) {
+    const minify = included === null;
+    if (included === null) {
+        included = new Set();
+    }
+    if (included.has(js_path)) {
+        return ''; // already included, do nothing
+    }
+    included.add(path.resolve(js_path));
+
+    let js = fs.readFileSync(js_path, 'utf8');
+
+    const reImport = /!G\.import\('(.*?)'\)/g;
+    let jsImport = '';
+    let found;
+    while ((found = reImport.exec(js)) !== null) {
+        const import_path = found[1];
+        jsImport += loadJS(import_path, included) + '\n';
+    }
+
+    js = jsImport + js;
+
+    if (minify) {
+        // noinspection JSUnresolvedFunction
+        js = uglifyes.minify(js, {
+            toplevel: true,
+            mangle: {
+                reserved: ['$']
+            }
+        }).code;
+    }
+
+    return js;
 }
 
 function mapHTML(html) {
