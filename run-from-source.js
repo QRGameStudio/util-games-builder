@@ -71,7 +71,7 @@ function build() {
     console.log('building...')
     const pathBuilder = __dirname + '/build-game.js';
 
-    const sub = spawn("node", [pathBuilder, GAME_FILE, "--json", "--no-qr"], {cwd: path.resolve(path.join(GAME_FILE, '..'))});
+    const sub = spawn("node", [pathBuilder, GAME_FILE, "--json", "--no-qr", "--no-minify"], {cwd: path.resolve(path.join(GAME_FILE, '..'))});
     let stdout = '';
 
     sub.stdout.on("data", data => {

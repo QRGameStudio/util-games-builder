@@ -19,6 +19,7 @@ function main() {
     const game_file = args[0];
     const json_output = args.indexOf('--json') > -1;
     const generate_qr_code = args.indexOf('--no-qr') === -1;
+    const minify = args.indexOf('--no-minify') === -1;
 
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
@@ -59,34 +60,35 @@ function main() {
             break;
         }
         const js_file = path.resolve(js_re_res[1]);
-        sourceFiles.push(js_file)
-        html = includeJS(html, js_file);
+        html = includeJS(html, js_file, sourceFiles, minify);
         js_re_index += js_re_res.index + js_re_res[0].length;
     }
 
     // minify HTML & CSS
-    html = htmlminify(html, {
-        caseSensitive: false,
-        collapseBooleanAttributes: true,
-        collapseInlineTagWhitespace: true,
-        collapseWhitespace: true,
-        decodeEntities: true,
-        html5: true,
-        minifyCSS: true,
-        minifyJS: false,
-        minifyURLs: true,
-        removeAttributeQuotes: true,
-        removeComments: true,
-        removeEmptyAttributes: true,
-        removeEmptyElements: false,
-        removeOptionalTags: true,
-        removeRedundantAttributes: true,
-        removeScriptTypeAttributes: true,
-        removeStyleLinkTypeAttributes: true,
-        removeTagWhitespace: true,
-        sortAttributes: true,
-        sortClassName: true,
-    });
+    if (minify) {
+        html = htmlminify(html, {
+            caseSensitive: false,
+            collapseBooleanAttributes: true,
+            collapseInlineTagWhitespace: true,
+            collapseWhitespace: true,
+            decodeEntities: true,
+            html5: true,
+            minifyCSS: true,
+            minifyJS: false,
+            minifyURLs: true,
+            removeAttributeQuotes: true,
+            removeComments: true,
+            removeEmptyAttributes: true,
+            removeEmptyElements: false,
+            removeOptionalTags: true,
+            removeRedundantAttributes: true,
+            removeScriptTypeAttributes: true,
+            removeStyleLinkTypeAttributes: true,
+            removeTagWhitespace: true,
+            sortAttributes: true,
+            sortClassName: true,
+        });
+    }
 
     const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
     const auxiliary_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', 'aux', path.basename(game_file)));
@@ -191,10 +193,12 @@ function getManifest(html) {
  * Include new javascript file inside HTML code
  * @param html {string} HTML code
  * @param js_file {string} path to the JS file
+ * @param sourceFiles {string[]} list of all source files
+ * @param minify {boolean} if set to false, then minification of the JS is not performed
  * @return {string} HTML with included JS code
  */
-function includeJS(html, js_file) {
-    const js = loadJS(js_file);
+function includeJS(html, js_file, sourceFiles, minify) {
+    const js = loadJS(js_file, sourceFiles, minify);
 
     // include js
     return html.replace(new RegExp(`<\\s*script\\s.*?${path.basename(js_file)}.*?>`),
@@ -204,30 +208,35 @@ function includeJS(html, js_file) {
 /**
  * Loads javascript code, resolving all imports
  * @param js_path {string} path to the JS file
- * @param included {Set[string] | null} list of already included file paths
+ * @param sourceFiles {string[]} list of all source files
+ * @param minify {boolean} if set to false, then minification of the JS is not performed
  * @return {string}
  */
-function loadJS(js_path, included = null) {
-    const minify = included === null;
-    if (included === null) {
-        included = new Set();
-    }
-    if (included.has(js_path)) {
+function loadJS(js_path, sourceFiles = [], minify = true) {
+    if (sourceFiles.indexOf(js_path) > -1) {
         return ''; // already included, do nothing
     }
-    included.add(path.resolve(js_path));
+    sourceFiles.push(js_path);
 
     let js = fs.readFileSync(js_path, 'utf8');
 
-    const reImport = /!G\.import\('(.*?)'\)/g;
-    let jsImport = '';
+    const reImport = /\/\/\s*!G\.import\('(.*?)'\)/g;
+    const replaceMap = new Map();
     let found;
     while ((found = reImport.exec(js)) !== null) {
-        const import_path = found[1];
-        jsImport += loadJS(import_path, included) + '\n';
+        const import_path = path.join(path.resolve(path.join(js_path, '..')), found[1]);
+        const match = found[0];
+
+        if (sourceFiles.indexOf(import_path) > -1) {
+            continue;
+        }
+
+        replaceMap.set(match, '\n' + loadJS(import_path, sourceFiles, false) + '\n');
     }
 
-    js = jsImport + js;
+    for (let [match, code] of replaceMap.entries()) {
+        js = js.replace(match, code);
+    }
 
     if (minify) {
         // noinspection JSUnresolvedFunction
