@@ -26,15 +26,25 @@ process.chdir('/');  // work in root in order to handle current cwd deletion by 
 
 const BUILD = {
     address: '',
+    gameFile: '',
+    buildTime: 0,
     watchedFiles: []
 }
 
-const CONNECTED_CLIENTS = []
+const CONNECTED_CLIENTS = [];
 
 
 function start_http() {
     app.get('/', function(req, res){
         res.sendFile(__dirname + '/autodeveloping-server/run-from-source.html');
+    });
+
+    app.get('/gameCodeRaw', function(req, res){
+        res.sendFile(BUILD.gameFile);
+    });
+
+    app.get('/buildTime', function(req, res){
+        res.send(BUILD.buildTime.toString());
     });
 
     console.log('listening on http://127.0.0.1:3000')
@@ -71,7 +81,7 @@ function build() {
     console.log('building...')
     const pathBuilder = __dirname + '/build-game.js';
 
-    const sub = spawn("node", [pathBuilder, GAME_FILE, "--json", "--no-qr", "--no-minify"], {cwd: path.resolve(path.join(GAME_FILE, '..'))});
+    const sub = spawn("node", [pathBuilder, GAME_FILE, "--json", "--no-qr", "--no-minify", "--no-aux"], {cwd: path.resolve(path.join(GAME_FILE, '..'))});
     let stdout = '';
 
     sub.stdout.on("data", data => {
@@ -94,7 +104,9 @@ function build() {
             console.error(`invalid data from builder: ${stdout}`);
             return;
         }
-        BUILD.address = WEB_PATH + '/' + buildData.urlDebug.split('/', 4)[3];
+        BUILD.gameFile = buildData.htmlOutputPath;
+        BUILD.buildTime = Date.now();
+        BUILD.address =  `${WEB_PATH}/html.html#@@http://localhost:3000/gameCodeRaw?now=${BUILD.buildTime}`;
 
         BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
 

@@ -20,6 +20,7 @@ function main() {
     const json_output = args.indexOf('--json') > -1;
     const generate_qr_code = args.indexOf('--no-qr') === -1;
     const minify = args.indexOf('--no-minify') === -1;
+    const aux = args.indexOf('--no-aux') === -1;
 
     if (!fs.existsSync(game_file)) {
         console.error("Game file does not exist: ", game_file);
@@ -90,54 +91,63 @@ function main() {
         });
     }
 
-    const output_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
+    const htmlOutputPath = path.resolve(path.join(path.resolve(game_file), '..', 'dist', path.basename(game_file)));
     const auxiliary_path = path.resolve(path.join(path.resolve(game_file), '..', 'dist', 'aux', path.basename(game_file)));
-    fs.mkdirSync(path.dirname(auxiliary_path), {recursive: true});
-    fs.mkdirSync(path.dirname(output_path), {recursive: true});
-    fs.writeFileSync(output_path, html);
+    if (aux) {
+        fs.mkdirSync(path.dirname(auxiliary_path), {recursive: true});
+    }
+    fs.mkdirSync(path.dirname(htmlOutputPath), {recursive: true});
+    fs.writeFileSync(htmlOutputPath, html);
 
-    // generate manifest from autodeveloping-server
-    const gameManifest = getManifest(html);
-    fs.writeFileSync(output_path + '.manifest.json', JSON.stringify(gameManifest, null, 2));
+    let b32, b64, urlDebug, urlProd;
 
-    html = mapHTML(html);
-    fs.writeFileSync(auxiliary_path + '.repl.txt', html);
+    if (aux || generate_qr_code) {
+        // generate manifest from autodeveloping-server
+        const gameManifest = getManifest(html);
+        fs.writeFileSync(htmlOutputPath + '.manifest.json', JSON.stringify(gameManifest, null, 2));
 
-    const compressed = Buffer.from(lzma.compress(html, 9));
-    fs.writeFileSync(auxiliary_path + '.bin', compressed);
-    const b64 = compressed.toString('base64');
-    fs.writeFileSync(auxiliary_path + '.b64.txt', b64);
+        html = mapHTML(html);
+        const compressed = Buffer.from(lzma.compress(html, 9));
+        b32 = 'CB' + base32.encode(compressed).toUpperCase();
+        b64 = compressed.toString('base64');
+        // noinspection HttpUrlsUsage
+        urlDebug = 'http://qrpr.eu/html.html#' + b32;
 
-    const b32 = 'CB' + base32.encode(compressed).toUpperCase();
-    fs.writeFileSync(output_path + '.compiled.txt', b32);
-    fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
-    // noinspection HttpUrlsUsage
-    fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
+        if (aux) {
+            fs.writeFileSync(auxiliary_path + '.repl.txt', html);
 
-    // noinspection HttpUrlsUsage
-    const urlDebug = 'http://qrpr.eu/html.html#' + b32;
-    fs.writeFileSync(auxiliary_path + '.url.txt', urlDebug);
+            fs.writeFileSync(auxiliary_path + '.bin', compressed);
+            fs.writeFileSync(auxiliary_path + '.b64.txt', b64);
 
-    const urlProd = 'https://QGO.EU/GAME#' + b32;
+            fs.writeFileSync(htmlOutputPath + '.compiled.txt', b32);
+            fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
+            // noinspection HttpUrlsUsage
+            fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
-    const url32Data = [
-        {data: 'https', mode: 'bytes'},
-        {data: '://QGO.EU/GAME/', mode: 'alphanumeric'},
-        {data: '#', mode: 'bytes'},
-        {data: b32, mode: 'alphanumeric'}
-    ];
+            fs.writeFileSync(auxiliary_path + '.url.txt', urlDebug);
+        }
+
+        urlProd = 'https://QGO.EU/GAME#' + b32;
+
+        const url32Data = [
+            {data: 'https', mode: 'bytes'},
+            {data: '://QGO.EU/GAME/', mode: 'alphanumeric'},
+            {data: '#', mode: 'bytes'},
+            {data: b32, mode: 'alphanumeric'}
+        ];
+
+        if (generate_qr_code) {
+            QRCode.toFile(htmlOutputPath + '.svg', url32Data);
+            QRCode.toFile(htmlOutputPath + '.png', url32Data);
+        }
+    }
 
     if (!json_output) {
         printInfoToConsole(b32, b64);
     } else {
         console.log(JSON.stringify({
-            b32, b64, urlProd, urlDebug, sourceFiles
+            b32, b64, urlProd, urlDebug, sourceFiles, htmlOutputPath
         }))
-    }
-
-    if (generate_qr_code) {
-        QRCode.toFile(output_path + '.svg', url32Data);
-        QRCode.toFile(output_path + '.png', url32Data);
     }
 
     if (after_action) {
@@ -427,7 +437,8 @@ function adaptiveCompression(text) {
 }
 
 function printInfoToConsole(b32, b64){
-    const urlLength = b32.length + 20;
+    const urlLength = (b32?.length || 0) + 20;
+    // noinspection HttpUrlsUsage
     console.log("\nUrl for debugging:\n\n", 'http://qrpr.eu/html.html#' + b64);
     console.log("\n\nProduction url:\n\n", "https://qgo.eu/Game/" + b32);
 
