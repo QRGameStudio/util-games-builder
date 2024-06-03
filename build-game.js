@@ -41,7 +41,7 @@ function main() {
     }
 
     // read html
-    let html = fs.readFileSync(game_file, "utf8");
+    let html = loadHTML(game_file);
 
     // include game style
     const css_file = game_file.replace('.html', '.css');
@@ -111,8 +111,10 @@ function main() {
     const b32 = 'CB' + base32.encode(compressed).toUpperCase();
     fs.writeFileSync(output_path + '.compiled.txt', b32);
     fs.writeFileSync(auxiliary_path + '.b32a.txt', adaptiveCompression(b32));
+    // noinspection HttpUrlsUsage
     fs.writeFileSync(auxiliary_path + '.b32.url.txt', `http://qrpr.eu/html.html#${b32}`);
 
+    // noinspection HttpUrlsUsage
     const urlDebug = 'http://qrpr.eu/html.html#' + b32;
     fs.writeFileSync(auxiliary_path + '.url.txt', urlDebug);
 
@@ -187,6 +189,29 @@ function getManifest(html) {
     }
 
     return manifest;
+}
+
+/**
+ * Loads HTML code, resolving all imports
+ * @param html_file {string} path to the HTML file
+ * @param sourceFiles {string[]} list of all source files
+ * @return {string} HTML code
+ */
+function loadHTML(html_file, sourceFiles = []) {
+    if (sourceFiles.indexOf(html_file) > -1) {
+        return ''; // already included, do nothing
+    }
+
+    let html = fs.readFileSync(html_file, 'utf8');
+    sourceFiles.push(html_file);
+    const importPattern = /<!--\s*!G\.import\('(.*?)'\)\s*-->/g;
+    let found;
+    while ((found = importPattern.exec(html)) !== null) {
+        const import_file = path.join(path.resolve(path.join(html_file, '..')), found[1]);
+        html = html.replace(found[0], loadHTML(import_file, sourceFiles));
+    }
+
+    return html;
 }
 
 /**
