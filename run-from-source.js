@@ -5,6 +5,10 @@ const io = require('socket.io')(server);
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require("child_process");
+const argv = require('minimist')(process.argv.slice(2));
+const mime = require('mime-types');
+
+
 
 /**
  * This program launches a development server that auto compiles your game whenever the source file changes
@@ -13,11 +17,12 @@ const { spawn } = require("child_process");
  */
 
 const ARGS = process.argv.slice(2);
-let WEB_PATH = 'https://qrpr.eu';
-if (ARGS[0].startsWith('--web=')) {
-    WEB_PATH = ARGS[0].split('=')[1];
-    ARGS.shift();
-}
+
+const WEB_PATH = path.resolve(argv['web-path']);
+ARGS.shift();
+const WEB_LIBS_PATH = path.resolve(argv['web-libs']);
+ARGS.shift();
+
 const GAME_FILE = path.resolve(ARGS[0]);
 ARGS.shift();
 const WATCHED_FILES = ARGS.map((f) => path.resolve(f));
@@ -34,24 +39,85 @@ const BUILD = {
 const CONNECTED_CLIENTS = [];
 
 
-function start_http() {
-    app.get('/', function(req, res){
+function startHTTP() {
+    app.get('/__autobuild/serve', function(req, res){
         res.sendFile(__dirname + '/autodeveloping-server/run-from-source.html');
     });
 
-    app.get('/gameCodeRaw', function(req, res){
+    app.get('/__autobuild/gameCodeRaw', function(req, res){
         res.sendFile(BUILD.gameFile);
     });
 
-    app.get('/buildTime', function(req, res){
+    app.get('/__autobuild/gameCodeAutoreload', function(req, res){
+        const host = req.headers.host;
+        const proto = req.headers['x-forwarded-proto'] || req.protocol;
+        const hostComplete = `${proto}://${host}`;
+        let content = fs.readFileSync(BUILD.gameFile).toString();
+        content = content.replace('</body>', `<script src="/socket.io/socket.io.js"></script><script>(() => {const socket = io();socket.on('url', (url) => {if (! url.endsWith("${BUILD.buildTime}")) window.location.href = url.replaceAll('%WEB_HOST%', '${hostComplete}');});})();</script></body>`);
+        res.send(content);
+    });
+
+    app.get('/__autobuild/start', function(req, res){
+        const host = req.headers.host;
+        const proto = req.headers['x-forwarded-proto'] || req.protocol;
+        const hostComplete = `${proto}://${host}`;
+        res.redirect(BUILD.address.replaceAll('%WEB_HOST%', hostComplete));
+    });
+
+    app.get('/__autobuild/buildTime', function(req, res){
         res.send(BUILD.buildTime.toString());
     });
 
-    console.log('listening on http://127.0.0.1:3000')
+    app.get('/lib/_GOffline.js', function(req, res){
+       res.status(200).type('application/javascript').send('console.debug("[CACHE] disabled by development server")');
+    });
+
+    app.get('/__lib__qrpr_eu/*', (req, res) => {
+        let filePath = req.path;
+        filePath = path.join(WEB_LIBS_PATH, filePath.replace('/__lib__qrpr_eu/', ''));
+        const mimeType = mime.lookup(filePath);
+        // console.log('[LIB]', filePath);
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.status(404).send('Not found');
+            } else {
+                res.status(200).type(mimeType).send(data);
+            }
+        });
+    });
+
+    app.get('*', (req, res) => {
+        let filePath = req.path;
+        const host = req.headers.host;
+        const proto = req.headers['x-forwarded-proto'] || req.protocol;
+        const hostComplete = `${proto}://${host}`;
+        if (!filePath || filePath === '/') {
+            filePath = '/index.html'
+        }
+        filePath = path.join(WEB_PATH, filePath);
+        // console.log('[WEB]', filePath);
+        const mimeType = mime.lookup(filePath);
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                res.status(404).send('Not found');
+            } else {
+                let dataString = data.toString();
+                dataString = dataString.replaceAll('https://api.qrpr.eu', hostComplete + '/__api_qrpr_eu')
+
+                if (WEB_LIBS_PATH) {
+                    dataString = dataString.replaceAll('https://lib.qrpr.eu', hostComplete + '/__lib__qrpr_eu');
+                }
+
+                res.status(200).type(mimeType).send(dataString);
+            }
+        });
+    });
+
+    console.log('[SERVER] Listening on http://127.0.0.1:3000/__autobuild/start');
     server.listen(3000);
 }
 
-function start_socket_io() {
+function startSocketIO() {
     io.on('connection', (client) => {
         CONNECTED_CLIENTS.push(client);
         client.emit('url', BUILD.address);
@@ -78,7 +144,8 @@ const buildDebounced = debounce(() => build(), 500);
 
 
 function build() {
-    console.log('building...')
+    console.log('[BUILD] Build started');
+    const start = Date.now();
     const pathBuilder = __dirname + '/build-game.js';
 
     const sub = spawn("node", [pathBuilder, GAME_FILE, "--json", "--no-qr", "--no-minify", "--no-aux"], {cwd: path.resolve(path.join(GAME_FILE, '..'))});
@@ -106,12 +173,12 @@ function build() {
         }
         BUILD.gameFile = buildData.htmlOutputPath;
         BUILD.buildTime = Date.now();
-        BUILD.address =  `${WEB_PATH}/html.html#@@http://localhost:3000/gameCodeRaw?now=${BUILD.buildTime}`;
+        BUILD.address =  `%WEB_HOST%/html.html#@@%WEB_HOST%/__autobuild/gameCodeAutoreload?built=${BUILD.buildTime}`;
 
         BUILD.watchedFiles.forEach((f) => fs.unwatchFile(f, ));
 
         BUILD.watchedFiles = [...buildData.sourceFiles, ...WATCHED_FILES];
-        console.log('build finished');
+        console.log('[BUILD] Build finished in', Date.now() - start, 'ms');
 
         BUILD.watchedFiles.forEach((f) => fs.watchFile(f, {persistent: false}, () => {
             buildDebounced();
@@ -129,8 +196,8 @@ function main() {
         process.exit(1);
     }
     build();
-    start_http();
-    start_socket_io();
+    startHTTP();
+    startSocketIO();
 }
 
 main();
