@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "base32": "0.0.6",
-    "express": "^4.17.1",
+    "express": "^4.21.0",
     "html-minifier": "^4.0.0",
     "jsdom": "^16.4.0",
     "mime-types": "^2.1.35",
