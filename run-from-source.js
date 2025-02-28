@@ -15,6 +15,7 @@ const mime = require('mime-types');
  *
  * Usage: node run-from-source.js /path/to/the/game.html [...additional paths to watch for change]
  */
+const PORT = 3000;
 
 const ARGS = process.argv.slice(2);
 
@@ -23,20 +24,47 @@ ARGS.shift();
 const WEB_LIBS_PATH = path.resolve(argv['web-libs']);
 ARGS.shift();
 
+let GAME_WINDOW = false;
+if (argv['window']) {
+    GAME_WINDOW = true;
+    ARGS.shift();
+}
+
+
 const GAME_FILE = path.resolve(ARGS[0]);
 ARGS.shift();
 const WATCHED_FILES = ARGS.map((f) => path.resolve(f));
 
 process.chdir('/');  // work in root in order to handle current cwd deletion by automatic compilers
 
+let signalFirstBuildFinished;
+
 const BUILD = {
     address: '',
     gameFile: '',
     buildTime: 0,
-    watchedFiles: []
+    watchedFiles: [],
+    finished: new Promise((resolve) => {signalFirstBuildFinished = resolve})
 }
 
 const CONNECTED_CLIENTS = [];
+
+
+function startGameWindow() {
+    const child = spawn(
+            'python3',
+            ['-c', `import webview; webview.create_window('QR Game', 'http://localhost:${PORT}/__autobuild/start'); webview.start()`],
+            { detached: true, stdio: 'ignore' }
+    );
+
+    // Listen for the 'exit' event on the parent process
+    process.on('exit', function() {
+        // Kill the child process when the parent process exits
+        child.kill();
+    });
+
+    child.unref();
+}
 
 
 function startHTTP() {
@@ -113,8 +141,8 @@ function startHTTP() {
         });
     });
 
-    console.log('[SERVER] Listening on http://127.0.0.1:3000/__autobuild/start');
-    server.listen(3000);
+    console.log(`[SERVER] Listening on http://127.0.0.1:${PORT}/__autobuild/start`);
+    server.listen(PORT);
 }
 
 function startSocketIO() {
@@ -155,6 +183,10 @@ function build() {
         stdout += data;
     });
 
+    sub.stderr.on("data", data => {
+        console.error(data.toString('utf8'));
+    });
+
     sub.on('error', (error) => {
         console.error(`build failed with error: ${error.message}`);
     });
@@ -179,6 +211,7 @@ function build() {
 
         BUILD.watchedFiles = [...buildData.sourceFiles, ...WATCHED_FILES];
         console.log('[BUILD] Build finished in', Date.now() - start, 'ms');
+        signalFirstBuildFinished();
 
         BUILD.watchedFiles.forEach((f) => fs.watchFile(f, {persistent: false}, () => {
             buildDebounced();
@@ -198,6 +231,9 @@ function main() {
     build();
     startHTTP();
     startSocketIO();
+    if (GAME_WINDOW) {
+        BUILD.finished.then(() => startGameWindow());
+    }
 }
 
 main();
