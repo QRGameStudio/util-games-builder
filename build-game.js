@@ -11,7 +11,7 @@ const open = require('open');
 const maxLength = 4296;
 const recLenght = 3000; // TODO experimatally find reccomended max size of QR codes in order to easy scann
 
-function main() {
+async function main() {
     const args = [...process.argv];
 
     args.shift();
@@ -139,8 +139,8 @@ function main() {
 
         if (generate_qr_code) {
             try {
-                QRCode.toFile(htmlOutputPath + '.svg', url32Data);
-                QRCode.toFile(htmlOutputPath + '.png', url32Data);
+                await QRCode.toFile(htmlOutputPath + '.svg', url32Data);
+                await QRCode.toFile(htmlOutputPath + '.png', url32Data);
             } catch (e) {
                 if (!too_large_is_ok) {
                     throw e;
@@ -471,4 +471,6 @@ function printLine(len){
     console.log(res, "\n");
 }
 
-main()
+main().then(() => {
+    process.exit(0);
+});
