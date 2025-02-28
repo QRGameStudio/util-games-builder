@@ -2,7 +2,7 @@ const fs = require('fs');
 const base32 = require('base32');
 const path = require('path');
 const htmlminify = require('html-minifier').minify;
-const uglifyes = require('uglify-es');
+const uglifyes = require('uglify-js');
 const lzma = require('lzma');
 const QRCode = require('qrcode');
 const jsdom = require('jsdom');
@@ -31,8 +31,8 @@ async function main() {
     const sourceFiles = [game_file];
 
     let after_action = null;
-    if (process.argv.length >= 4) {
-        switch (process.argv[3]) {
+    if (args.length >= 2) {
+        switch (args[1]) {
             case 'run':
                 after_action = 'run';
                 break;
@@ -281,7 +281,6 @@ function loadJS(js_path, sourceFiles = [], minify = true) {
     }
 
     if (minify) {
-        // noinspection JSUnresolvedFunction
         js = uglifyes.minify(js, {
             toplevel: true,
             mangle: {
