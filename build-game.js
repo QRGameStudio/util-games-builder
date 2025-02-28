@@ -18,6 +18,7 @@ function main() {
     args.shift();
     const game_file = args[0];
     const json_output = args.indexOf('--json') > -1;
+    const too_large_is_ok = args.indexOf('--too-large-ok') > -1;
     const generate_qr_code = args.indexOf('--no-qr') === -1;
     const minify = args.indexOf('--no-minify') === -1;
     const aux = args.indexOf('--no-aux') === -1;
@@ -137,8 +138,14 @@ function main() {
         ];
 
         if (generate_qr_code) {
-            QRCode.toFile(htmlOutputPath + '.svg', url32Data);
-            QRCode.toFile(htmlOutputPath + '.png', url32Data);
+            try {
+                QRCode.toFile(htmlOutputPath + '.svg', url32Data);
+                QRCode.toFile(htmlOutputPath + '.png', url32Data);
+            } catch (e) {
+                if (!too_large_is_ok) {
+                    throw e;
+                }
+            }
         }
     }
 
